@@ -1,0 +1,56 @@
+{
+  "name": "knowghost",
+  "version": "0.1.0",
+  "description": "AI Interview Assistant",
+  "author": "andgihat",
+  "license": "GPL-3.0",
+  "scripts": {
+    "pretauri": "node ./scripts/sync-tauri-version.mjs",
+    "version": "node ./scripts/sync-tauri-version.mjs && git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "dev:renderer": "vite --config vite.config.mts",
+    "build:renderer": "vite build --config vite.config.mts",
+    "preview": "vite preview --config vite.config.mts",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.16",
+    "@tauri-apps/cli": "2.9.4",
+    "@types/node": "24.9.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.6",
+    "sass": "1.93.2",
+    "tailwindcss": "4.1.16",
+    "tslib": "2.8.1",
+    "typescript": "5.9.3",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@google/genai": "1.22.0",
+    "@mui/icons-material": "7.3.4",
+    "@mui/material": "7.3.4",
+    "@tauri-apps/api": "2.9.0",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-http": "^2.5.4",
+    "axios": "1.13.1",
+    "axios-tauri-api-adapter": "^2.0.6",
+    "highlight.js": "^11.11.1",
+    "marked": "16.3.0",
+    "openai": "6.1.0",
+    "qrcode.react": "4.2.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-toastify": "^10.0.0"
+  },
+  "optionalDependencies": {
+    "@tauri-apps/cli-win32-x64-msvc": "2.9.4"
+  }
+}

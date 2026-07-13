@@ -1,0 +1,242 @@
+import {initControls, updateDurations} from './ui/controls';
+import {listen} from '@tauri-apps/api/event';
+import {initStatus, setStatus} from './ui/status';
+import {initOutputs} from './ui/outputs';
+import {settingsStore} from './state/settingsStore';
+import {setupAnswerFontSizeControls} from './app/fontSizeControls';
+import {awaitPreloadBridge} from './app/preloadBridge';
+import {StreamController} from './app/streamController';
+import {ScreenshotController} from './app/screenshotController';
+import {hideStopButton, registerStopButton} from './ui/stopButton';
+import {state} from './state/appState';
+
+async function setupTranscriptionDebugListener() {
+    try {
+        await listen('transcription:debug:saved', (event: any) => {
+            const {path, size, mode, filename} = event.payload;
+            console.log('[transcription] Saved audio file:', {
+                path,
+                size: `${size} bytes`,
+                mode,
+                filename,
+            });
+        });
+    } catch (error) {
+        // Silently fail - this is optional
+    }
+}
+
+export async function initializeRenderer() {
+    // Setup transcription debug listener (optional)
+    setupTranscriptionDebugListener().catch(() => {
+    });
+
+    // System audio capture is now handled by Rust WASAPI loopback
+    // No need to request getDisplayMedia permission
+
+    setupAnswerFontSizeControls();
+
+    initStatus(document.getElementById('status') as HTMLDivElement | null);
+    initOutputs({
+        chat: document.getElementById('chatOut') as HTMLDivElement | null,
+    });
+
+    const bridge = await awaitPreloadBridge();
+    if (!bridge) {
+        setStatus('Preload-скрипт недоступен', 'error');
+        return;
+    }
+    console.info('[renderer] Preload bridge ready for use');
+
+    const streamController = new StreamController();
+    streamController.setupCardSelectionListener();
+    const screenshotController = new ScreenshotController();
+
+    const streamModeContainer = document.getElementById('streamResultsSection');
+    const streamResults = document.getElementById('streamResultsTextarea') as HTMLTextAreaElement | null;
+    const btnSendStream = document.getElementById('btnSendStreamText') as HTMLButtonElement | null;
+    const btnToggleInput = document.getElementById('btnToggleInput') as HTMLButtonElement | null;
+    const toggleInputIcon = document.getElementById('toggleInputIcon') as HTMLImageElement | null;
+    const durationsContainer = document.getElementById('send-last-container') as HTMLDivElement | null;
+    streamController.initialize({
+        streamModeContainer: streamModeContainer as HTMLElement | null,
+        streamResults,
+        streamSendButton: btnSendStream,
+        toggleInputButton: btnToggleInput,
+        toggleInputIcon,
+        durationsContainer,
+    });
+    await streamController.syncInitialSettings();
+
+    const btnScreenshot = document.getElementById('btnScreenshot') as HTMLButtonElement | null;
+    const btnStop = document.getElementById('btnStopStream') as HTMLButtonElement | null;
+    const btnClearHistory = document.getElementById('btnClearHistory') as HTMLButtonElement | null;
+    registerStopButton(btnStop);
+
+    if (btnScreenshot) {
+        btnScreenshot.addEventListener('click', async () => {
+            await screenshotController.start();
+        });
+    }
+
+    if (btnStop) {
+        btnStop.addEventListener('click', async () => {
+            if (await streamController.stopActiveOperation()) {
+                return;
+            }
+            if (screenshotController.cancelActive()) {
+                return;
+            }
+            hideStopButton();
+        });
+    }
+
+    if (btnClearHistory) {
+        btnClearHistory.addEventListener('click', () => {
+            streamController.clearConversationHistory();
+        });
+    }
+
+    const btnSaveCard = document.getElementById('btnSaveCard') as HTMLButtonElement | null;
+    if (btnSaveCard) {
+        btnSaveCard.addEventListener('click', () => {
+            void streamController.saveConversationToCard();
+        });
+    }
+
+    const btnSummary = document.getElementById('btnSummary') as HTMLButtonElement | null;
+    if (btnSummary) {
+        btnSummary.addEventListener('click', () => {
+            void streamController.createSummaryCard();
+        });
+    }
+
+    const settings = await settingsStore.load();
+
+    // Держим кэш настроек в синхроне с бэкендом: любая правка конфига
+    // (смена провайдера, активация ключа и т.д.) эмитит config:updated.
+    void listen('config:updated', () => {
+        void settingsStore.load();
+    });
+
+    const durations = Array.isArray(settings.durations) && settings.durations.length
+        ? settings.durations
+        : [5, 10, 15, 20, 30, 60];
+    const durationHotkeys = settings.durationHotkeys;
+    if (Array.isArray(durations) && durations.length) {
+        try {
+            (state as any).durationSec = Math.max(...durations);
+        } catch {
+        }
+    }
+
+    initControls({
+        durations,
+        onRecordToggle: async (shouldRecord) => {
+            await streamController.handleRecordToggle(shouldRecord);
+        },
+        onDurationChange: (sec) => {
+            streamController.handleAskWindow(sec);
+        },
+        onTextSend: (text) => {
+            streamController.handleTextSend(text);
+        },
+    });
+
+    try {
+        const durationsEl = document.getElementById('durations') as HTMLDivElement | null;
+        if (durationsEl && durationHotkeys) {
+            const buttons = durationsEl.querySelectorAll('button');
+            buttons.forEach((btn) => {
+                const sec = Number((btn as HTMLButtonElement).dataset['sec'] || '0');
+                const key = (durationHotkeys as any)[sec];
+                if (!key) return;
+                const old = btn.querySelector('.hk');
+                if (old) old.remove();
+                const label = document.createElement('span');
+                label.className = 'hk text-xs text-gray-400 font-extralight';
+                label.textContent = `Ctrl-${String(key).toUpperCase()}`;
+                btn.appendChild(label);
+            });
+        }
+    } catch {
+    }
+
+    window.api.hotkeys.onDuration((_e: unknown, payload: { sec: number }) => {
+        try {
+            streamController.handleAskWindow(payload.sec);
+        } catch {
+        }
+    });
+
+    window.api.hotkeys.onToggleInput(async () => {
+        await streamController.handleHotkeyToggleRequest();
+    });
+
+    window.addEventListener('knowghost:settings-changed' as any, async (ev: any) => {
+        try {
+            const {key, value} = ev?.detail || {};
+            const handled = streamController.handleSettingsChange(key, value);
+            const finalized = handled instanceof Promise ? await handled : handled;
+            if (finalized) {
+                return;
+            }
+            switch (key) {
+                case 'durations': {
+                    const nextDurations: number[] = Array.isArray(value) ? value : [];
+                    settingsStore.patch({durations: nextDurations});
+                    updateDurations(nextDurations, (sec) => {
+                        streamController.handleAskWindow(sec);
+                    });
+                    try {
+                        (state as any).durationSec = Math.max(...nextDurations);
+                    } catch {
+                    }
+                    break;
+                }
+                case 'durationHotkeys': {
+                    const map = (value ?? {}) as Record<number, string>;
+                    settingsStore.patch({durationHotkeys: map});
+                    const durationsEl = document.getElementById('durations') as HTMLDivElement | null;
+                    if (!durationsEl) break;
+                    const buttons = durationsEl.querySelectorAll('button');
+                    buttons.forEach((btn) => {
+                        const old = btn.querySelector('.hk');
+                        if (old) old.remove();
+                        const sec = Number((btn as HTMLButtonElement).dataset['sec'] || '0');
+                        const hotkey = map?.[sec];
+                        if (!hotkey) return;
+                        const label = document.createElement('span');
+                        label.className = 'hk text-xs text-gray-400 font-extralight';
+                        label.textContent = `Ctrl-${String(hotkey).toUpperCase()}`;
+                        btn.appendChild(label);
+                    });
+                    break;
+                }
+                default:
+                    break;
+            }
+        } catch (error) {
+            console.error('settings change handler failed', error);
+        }
+    });
+
+    const minimizeBtn = document.getElementById('minimizeBtn');
+    const closeBtn = document.getElementById('closeBtn');
+
+    if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', () => {
+            window.api.window.minimize();
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            window.api.window.close();
+        });
+        closeBtn.blur();
+        closeBtn.addEventListener('focus', () => {
+            closeBtn.blur();
+        });
+    }
+}

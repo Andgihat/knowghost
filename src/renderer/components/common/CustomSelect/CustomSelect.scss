@@ -1,0 +1,176 @@
+/* noinspection CssUnusedSymbol */
+
+.custom-select {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+}
+
+.custom-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--outline-soft);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  text-align: left;
+}
+
+.custom-select__trigger:focus-visible {
+  outline: none;
+  border-color: var(--outline-strong);
+  box-shadow: 0 0 0 2px var(--outline-soft);
+  background: var(--card-bg);
+}
+
+.custom-select__trigger:hover,
+.custom-select--open .custom-select__trigger {
+  border-color: var(--outline-strong);
+  background: var(--card-bg);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.custom-select__trigger:disabled,
+.custom-select--disabled .custom-select__trigger {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  border-color: var(--outline-soft);
+}
+
+.custom-select__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-select__placeholder {
+  color: var(--text-muted);
+}
+
+.custom-select__chevron {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--text-secondary);
+  transition: transform 0.16s ease, border-top-color 0.16s ease;
+}
+
+.custom-select--open .custom-select__chevron {
+  transform: rotate(180deg);
+  border-top-color: var(--text-primary);
+}
+
+.custom-select__dropdown-container {
+  pointer-events: none;
+}
+
+.custom-select__dropdown {
+  position: absolute;
+  top: var(--cs-top, 0px);
+  left: var(--cs-left, 0px);
+  width: var(--cs-width, 100%);
+  margin: 0;
+  padding: 0.5rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--card-border);
+  background: var(--bg-glass);
+  backdrop-filter: blur(28px) saturate(165%);
+  box-shadow: 0 28px 48px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--outline-soft);
+  max-height: 280px;
+  overflow: auto;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  transform-origin: top;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.custom-select__dropdown--open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.custom-select__dropdown--closing {
+  pointer-events: none;
+}
+
+.custom-select__option {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.custom-select__option small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.custom-select__option:hover,
+.custom-select__option--selected {
+  background: var(--outline-soft);
+}
+
+.custom-select__option--selected {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.custom-select__option--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.custom-dropdown-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-soft) transparent;
+}
+
+.custom-dropdown-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-dropdown-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.custom-dropdown-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--outline-soft);
+  border-radius: 4px;
+  border: 1px solid var(--outline-soft);
+}
+
+.custom-dropdown-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--outline-strong);
+}
+
+.custom-dropdown-scrollbar::-webkit-scrollbar-thumb:active {
+  background: var(--outline-strong);
+}
+
+.custom-dropdown-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -1,0 +1,319 @@
+// noinspection XmlDeprecatedElement
+
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {Checkbox, FormControlLabel, MenuItem, Slider, TextField} from '@mui/material';
+import {useSettingsContext} from '../SettingsView/SettingsView';
+import {logger} from '../../../utils/logger';
+import {toast} from 'react-toastify';
+import {emitThemeChange, normalizeThemeMode, ThemeMode} from '../../../ui/theme';
+import {getLang, Lang, setLanguage, t} from '../../../i18n';
+import './GeneralSettings.scss';
+
+const MIN_WINDOW_WIDTH = 400;
+const MIN_WINDOW_HEIGHT = 500;
+const DEFAULT_WINDOW_WIDTH = 850;
+const DEFAULT_WINDOW_HEIGHT = 900;
+
+const baseCheckboxIcon = (
+    <span className="winky-checkbox__control">
+    </span>
+);
+
+const checkedCheckboxIcon = (
+    <span className="winky-checkbox__control winky-checkbox__control--checked">
+        <svg className="winky-checkbox__check" viewBox="0 0 16 16" aria-hidden focusable="false">
+            <polyline
+                points="3.5 8.5 6.5 11.5 12.5 4.5"
+                fill="none"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    </span>
+);
+
+export const GeneralSettings = () => {
+    const {settings, patchLocal} = useSettingsContext();
+    const [windowOpacity, setWindowOpacity] = useState(settings.windowOpacity ?? 100);
+    const [windowScale, setWindowScale] = useState(settings.windowScale ?? 1);
+    const [windowWidth, setWindowWidth] = useState(settings.windowWidth ?? DEFAULT_WINDOW_WIDTH);
+    const [windowHeight, setWindowHeight] = useState(settings.windowHeight ?? DEFAULT_WINDOW_HEIGHT);
+    const sizeSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastWindowSizeRef = useRef<{ width: number; height: number }>({
+        width: settings.windowWidth ?? DEFAULT_WINDOW_WIDTH,
+        height: settings.windowHeight ?? DEFAULT_WINDOW_HEIGHT,
+    });
+
+
+    useEffect(() => {
+        setWindowOpacity(settings.windowOpacity ?? 100);
+        setWindowScale(settings.windowScale ?? 1);
+        const nextWidth = settings.windowWidth ?? DEFAULT_WINDOW_WIDTH;
+        const nextHeight = settings.windowHeight ?? DEFAULT_WINDOW_HEIGHT;
+        const {width: prevWidth, height: prevHeight} = lastWindowSizeRef.current;
+        if (nextWidth !== prevWidth || nextHeight !== prevHeight) {
+            lastWindowSizeRef.current = {width: nextWidth, height: nextHeight};
+            setWindowWidth(nextWidth);
+            setWindowHeight(nextHeight);
+        }
+    }, [settings]);
+
+    const showMessage = (text: string, tone: 'success' | 'error' = 'success') => {
+        toast[tone](text);
+    };
+
+    const toggleAlwaysOnTop = async (value: boolean) => {
+        try {
+            await window.api.settings.setAlwaysOnTop(value);
+            patchLocal({alwaysOnTop: value});
+
+            // If disabling AlwaysOnTop, also disable HideApp
+            if (!value && settings.hideApp) {
+                await window.api.settings.setHideApp(false);
+                patchLocal({hideApp: false});
+            }
+        } catch (error) {
+            logger.error('settings', 'Failed to update always on top', {error});
+        }
+    };
+
+    const toggleHideApp = async (value: boolean) => {
+        try {
+            // Enabling HideApp requires AlwaysOnTop, so enable it if needed
+            if (value && !settings.alwaysOnTop) {
+                await window.api.settings.setAlwaysOnTop(true);
+                patchLocal({alwaysOnTop: true});
+            }
+
+            await window.api.settings.setHideApp(value);
+            patchLocal({hideApp: value});
+        } catch (error) {
+            logger.error('settings', 'Failed to update hide app', {error});
+        }
+    };
+
+    const updateOpacity = (value: number) => {
+        // Only update local state for immediate UI feedback
+        setWindowOpacity(value);
+    };
+
+    const saveOpacity = async (value: number) => {
+        // Persist to config only when the user releases the slider
+        try {
+            await window.api.settings.setWindowOpacity(value);
+            patchLocal({windowOpacity: value});
+        } catch (error) {
+            logger.error('settings', 'Failed to update window opacity', {error});
+        }
+    };
+
+    const updateScale = (value: number) => {
+        // Only update local state for immediate UI feedback
+        setWindowScale(value);
+    };
+
+    const saveScale = async (value: number) => {
+        // Persist to config only when the user releases the slider
+        try {
+            await window.api.settings.setWindowScale(value);
+            patchLocal({windowScale: value});
+        } catch (error) {
+            logger.error('settings', 'Failed to update window scale', {error});
+            showMessage(t('settings.scaleFailed'), 'error');
+        }
+    };
+
+    const saveWindowSize = useCallback(async (widthValue: number, heightValue: number) => {
+        const width = Math.max(MIN_WINDOW_WIDTH, Math.round(widthValue));
+        const height = Math.max(MIN_WINDOW_HEIGHT, Math.round(heightValue));
+        setWindowWidth(width);
+        setWindowHeight(height);
+        try {
+            await window.api.settings.setWindowSize({width, height});
+            patchLocal({windowWidth: width, windowHeight: height});
+            showMessage(t('settings.sizeSaved'));
+        } catch (error) {
+            logger.error('settings', 'Failed to save window size', {error});
+            showMessage(t('settings.sizeFailed'), 'error');
+        }
+    }, [patchLocal]);
+
+    useEffect(() => {
+        if (sizeSaveTimeout.current) {
+            clearTimeout(sizeSaveTimeout.current);
+        }
+        sizeSaveTimeout.current = null;
+
+        const normalizedWidth = Math.max(MIN_WINDOW_WIDTH, Math.round(windowWidth));
+        const normalizedHeight = Math.max(MIN_WINDOW_HEIGHT, Math.round(windowHeight));
+        const currentWidth = settings.windowWidth ?? DEFAULT_WINDOW_WIDTH;
+        const currentHeight = settings.windowHeight ?? DEFAULT_WINDOW_HEIGHT;
+
+        if (normalizedWidth === currentWidth && normalizedHeight === currentHeight) {
+            return;
+        }
+
+        sizeSaveTimeout.current = setTimeout(() => {
+            void saveWindowSize(normalizedWidth, normalizedHeight);
+        }, 600);
+        return () => {
+            if (sizeSaveTimeout.current) {
+                clearTimeout(sizeSaveTimeout.current);
+                sizeSaveTimeout.current = null;
+            }
+        };
+    }, [windowWidth, windowHeight, saveWindowSize, settings.windowWidth, settings.windowHeight]);
+
+    const changeTheme = async (value: ThemeMode) => {
+        emitThemeChange(value); // мгновенный отклик UI
+        try {
+            await window.api.settings.setTheme(value);
+            patchLocal({theme: value});
+        } catch (error) {
+            logger.error('settings', 'Failed to update theme', {error});
+            showMessage(t('settings.themeFailed'), 'error');
+        }
+    };
+
+    const openConfigFolder = async () => {
+        try {
+            await window.api.settings.openConfigFolder();
+        } catch (error) {
+            logger.error('settings', 'Failed to open config folder', {error});
+            showMessage(t('settings.configFolderFailed'), 'error');
+        }
+    };
+
+    return (
+        <div className="settings-sections fc gap-3">
+            <section className="settings-card card">
+                <h3 className="settings-card__title">{t('settings.appearance')}</h3>
+                <div className="settings-field">
+                    <TextField
+                        select
+                        size="small"
+                        fullWidth
+                        label={t('settings.theme')}
+                        value={normalizeThemeMode(settings.theme)}
+                        onChange={(event) => void changeTheme(event.target.value as ThemeMode)}
+                    >
+                        <MenuItem value="dark">{t('theme.dark')}</MenuItem>
+                        <MenuItem value="light">{t('theme.light')}</MenuItem>
+                    </TextField>
+                </div>
+                <div className="settings-field">
+                    <TextField
+                        select
+                        size="small"
+                        fullWidth
+                        label={t('common.language')}
+                        value={getLang()}
+                        onChange={(event) => setLanguage(event.target.value as Lang)}
+                    >
+                        <MenuItem value="ru">{t('lang.ru')}</MenuItem>
+                        <MenuItem value="en">{t('lang.en')}</MenuItem>
+                    </TextField>
+                </div>
+            </section>
+
+            <section className="settings-card card">
+                <h3 className="settings-card__title">{t('settings.windowBehavior')}</h3>
+                <div className="fc -mt-2">
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                size="small"
+                                checked={Boolean(settings.alwaysOnTop)}
+                                onChange={(event) => toggleAlwaysOnTop(event.target.checked)}
+                                icon={baseCheckboxIcon}
+                                checkedIcon={checkedCheckboxIcon}
+                                disableRipple
+                            />
+                        }
+                        label={t('settings.alwaysOnTop')}
+                    />
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                size="small"
+                                checked={Boolean(settings.hideApp)}
+                                onChange={(event) => toggleHideApp(event.target.checked)}
+                                icon={baseCheckboxIcon}
+                                checkedIcon={checkedCheckboxIcon}
+                                disableRipple
+                            />
+                        }
+                        label={t('settings.hideOnCapture')}
+                    />
+                </div>
+
+                <div className="settings-slider -mt-2">
+                    <span className="settings-slider__label">{t('settings.opacity')}</span>
+                    <div className="settings-slider__control -mt-2">
+                        <Slider
+                            min={5}
+                            max={100}
+                            value={windowOpacity}
+                            onChange={(_event, value) => updateOpacity(Number(value))}
+                            onChangeCommitted={(_event, value) => saveOpacity(Number(value))}
+                            valueLabelDisplay="auto"
+                            size="small"
+                        />
+                        <span className="settings-slider__value">{windowOpacity}%</span>
+                    </div>
+                </div>
+
+                <div className="settings-slider -mt-3">
+                    <span className="settings-slider__label">{t('settings.scale')}</span>
+                    <div className="settings-slider__control -mt-2">
+                        <Slider
+                            min={0.5}
+                            max={3}
+                            step={0.1}
+                            value={windowScale}
+                            onChange={(_event, value) => updateScale(Number(value))}
+                            onChangeCommitted={(_event, value) => saveScale(Number(value))}
+                            valueLabelDisplay="auto"
+                            size="small"
+                        />
+                        <span className="settings-slider__value">{windowScale.toFixed(1)}x</span>
+                    </div>
+                </div>
+            </section>
+
+            <section className="settings-card card">
+                <h3 className="settings-card__title">{t('settings.windowSize')}</h3>
+                <div className="settings-window-size">
+                    <div className="settings-field">
+                        <TextField
+                            label={t('settings.width', {min: MIN_WINDOW_WIDTH})}
+                            type="number"
+                            value={windowWidth}
+                            size={'small'}
+                            onChange={(event) => setWindowWidth(Number(event.target.value))}
+                            inputProps={{min: MIN_WINDOW_WIDTH}}
+                        />
+                    </div>
+                    <div className="settings-field">
+                        <TextField
+                            label={t('settings.height', {min: MIN_WINDOW_HEIGHT})}
+                            type="number"
+                            size={'small'}
+                            value={windowHeight}
+                            onChange={(event) => setWindowHeight(Number(event.target.value))}
+                            inputProps={{min: MIN_WINDOW_HEIGHT}}
+                        />
+                    </div>
+                </div>
+            </section>
+
+            <section className="settings-card card">
+                <h3 className="settings-card__title">{t('settings.configFolder')}</h3>
+                <button type="button" className="btn btn-sm" onClick={openConfigFolder}>
+                    {t('settings.openConfigFolder')}
+                </button>
+            </section>
+        </div>
+    );
+};
