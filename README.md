@@ -12,14 +12,36 @@
 
 ## ✦ Key Features
 
-- **Stealth mode** — window is excluded from screen capture, stays hidden during Zoom, Google Meet, Teams, and other screen sharing
-- **Speech recognition** — one-click whisper.cpp installer (CPU or GPU/CUDA), or bring your own whisper-server
-- **LLM chat** — any OpenAI-compatible endpoint (DeepSeek, OpenRouter, local Ollama)
-- **Vision** — paste screenshots into chat (`Ctrl+V`), or capture & analyze screen via a dedicated vision model
-- **Card storage** — save conversations to searchable cards, auto-save while chatting
-- **Local AI** — run models locally for privacy and speed
+### 🎤 Speech & Transcription
+- **System audio capture** — captures audio directly from your system (Zoom, Teams, browser, any app) without microphone feedback
+- **Microphone support** — also works as a classic voice recorder
+- **Multi-provider transcription** — OpenAI Whisper, Google AI, Deepgram, or local whisper.cpp (CPU or GPU/CUDA)
+- **One-click whisper.cpp installer** — downloads and sets up whisper.cpp automatically, no manual configuration
+- **Customizable transcription prompt** — tuned for technical interviews, preserves English terms (APIs, Redis, Postgres, etc.)
+
+### 🤖 AI & Chat
+- **LLM-agnostic** — works with any OpenAI-compatible endpoint: DeepSeek, OpenRouter, Google AI, local Ollama, TabbyAPI, or your own custom provider
+- **Multimodal chat** — paste images directly into messages (`Ctrl+V`), the LLM sees and understands them (diagrams, code screenshots, whiteboards)
+- **Screenshot analysis** — capture screen region or full display and send to a dedicated vision model for analysis
+- **Adjustable system prompt** — customize the AI's behavior, or use the built-in prompts that adapt to your UI language
+- **Conversation history** — full chat history preserved, scrollable and searchable
+
+### 💾 Card Storage
+- **Save any conversation** — press one button to save a full Q&A session into a searchable card
+- **Auto-save** — when chatting inside a card, messages are saved automatically — no manual saving needed
+- **Search & filter** — find past conversations by title or tags
+- **Summary cards** — one-click summarization of any conversation into a concise card
+
+### 👁 Stealth & UI
+- **Invisible to screen capture** — the window is excluded from screen recording and screen sharing (Zoom, Google Meet, Teams, OBS, etc.)
+- **Always-on-top** — floats above other windows, with adjustable transparency for minimal intrusion
+- **Dark & light themes** — MUI-based with orange accent (#db704b)
+- **i18n** — English and Russian interface
+
+### ⚡ Other
+- **Hotkeys** — customizable shortcuts for quick audio capture and stream sending
+- **Local AI** — run both LLM and transcription fully offline for privacy and zero latency
 - **Cross-platform** — Windows, macOS, Linux
-- **i18n** — English and Russian UI
 
 ## ▸ How to Use
 
