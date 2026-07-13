@@ -77,9 +77,8 @@ KnowGhost supports fully local operation — no cloud dependency, maximum privac
 ### Local LLM
 
 1. In settings: `Mode → LLM` = `Local`
-2. Choose a model (e.g. `qwen3:4b` for low-spec PCs)
-3. Install [Ollama](https://ollama.com/)
-4. `ollama pull qwen3:4b` then `ollama serve`
+2. Install [Ollama](https://ollama.com/)
+3. Pull any model: `ollama pull <model-name>` then `ollama serve`
 
 ### Local Speech Recognition
 
